@@ -20,6 +20,10 @@ NVIDIA is at the forefront of confidential computing, collaborating with CPU par
 
 For more information, including documentation, white papers, and videos regarding the Hopper Confidential Computing story, please visit [NVIDIA docs](https://docs.nvidia.com/confidential-computing/index.html).
 
+## Contributing
+
+We welcome contributions from the community. Please refer to our [CONTRIBUTE.md](CONTRIBUTE.md) file for guidelines on how to contribute to this project.
+
 ## License
 
 This repository is licensed under Apache License v2.0 except where otherwise noted.

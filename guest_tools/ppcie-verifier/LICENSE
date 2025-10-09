@@ -86,7 +86,7 @@ Python copyright:
 Open Source Software Licensed Under the MIT License:
 ----------------------------------------------------
 
-black, build, poetry, pytest, timeout-decorator, tomlkit, urllib3, wheel and setuptools are MIT licensed Python packages used in this project.
+black, build, poetry, pytest, timeout-decorator, tomlkit, urllib3, wheel, pytest-cov and setuptools are MIT licensed Python packages used in this project.
 
 
 black:
@@ -113,6 +113,8 @@ urllib3:
 wheel:
     Copyright (c) 2012 Daniel Holth <dholth@fastmail.fm> and contributors
 
+pytest-cov:
+    Copyright (c) 2010 Holger Krekel and others
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

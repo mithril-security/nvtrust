@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -311,7 +311,8 @@ def attest(arguments_as_dictionary, nonce, gpu_evidence_list):
     overall_status = False
     gpu_claims_list = []
     att_report_nonce_hex = CcAdminUtils.validate_and_extract_nonce(nonce)
-
+    any_gpu_in_MPT_mode = False
+    any_gpu_in_SPT_mode = False
 
     try:
         BaseSettings.allow_hold_cert = arguments_as_dictionary['allow_hold_cert']
@@ -451,20 +452,26 @@ def attest(arguments_as_dictionary, nonce, gpu_evidence_list):
                 if not arguments_as_dictionary['test_no_gpu']:
                     info_log.info("\t\t\tFetching the driver RIM from the RIM service.")
                     try:
-                        chip = attestation_report_obj.get_response_message().get_opaque_data().get_data(
-                            "OPAQUE_FIELD_ID_CHIP_INFO")
+                        # As OPAQUE_FIELD_ID_CHIP_INFO is supported from Blackwell+ chips,
+                        # assigning the chip name to be GH100 directly
+                        # For Blackwell+ chips, we derive it from the opaque data field
+                        if settings.GPU_ARCH_NAME == "HOPPER":
+                            chip = "GH100"
+                        else:
+                            chip = attestation_report_obj.get_response_message().get_opaque_data().get_data("OPAQUE_FIELD_ID_CHIP_INFO")
                         driver_rim_file_id = CcAdminUtils.get_driver_rim_file_id(driver_version, settings, chip)
 
                         driver_rim_content = function_wrapper_with_timeout([CcAdminUtils.fetch_rim_file,
-                                                                            driver_rim_file_id,
-                                                                            'fetch_rim_file'],
-                                                                           BaseSettings.MAX_NETWORK_TIME_DELAY)
+                                                                                driver_rim_file_id,
+                                                                                'fetch_rim_file'],
+                                                                               BaseSettings.MAX_NETWORK_TIME_DELAY)
 
                         driver_rim = RIM(rim_name='driver', settings=settings, content=driver_rim_content)
                     except Exception as error:
                         info_log.error("Error occurred while fetching the driver RIM from the "
                                        "RIM service due to %s", error)
                         raise RIMFetchError(f'Unable to fetch driver RIM from RIM service: {driver_rim_file_id}')
+
                 else:
                     info_log.info("\t\t\tUsing the local driver rim file : " + settings.DRIVER_RIM_PATH)
                     driver_rim = RIM(rim_name='driver', settings=settings, rim_path=settings.DRIVER_RIM_PATH)
@@ -485,6 +492,15 @@ def attest(arguments_as_dictionary, nonce, gpu_evidence_list):
             else:
                 event_log.error("\t\t\tDriver RIM verification failed.")
                 raise RIMVerificationFailureError("\t\t\tDriver RIM verification failed.\n\t\t\tQuitting now.")
+
+            # OPAQUE_DATA_VERSION 1 indicates the first version of the Feature Flag present in the OpaqueData field.
+            if BaseSettings.CURRENT_OPAQUE_DATA_VERSION >= BaseSettings.MIN_OPAQUE_DATA_VERSION_TO_SUPPORT_FEATURE_FLAG:
+                feature_flag = attestation_report_obj.get_response_message().get_opaque_data().get_data(
+                    "OPAQUE_FIELD_ID_FEATURE_FLAG")
+                if feature_flag == "MPT":
+                    any_gpu_in_MPT_mode = True
+                elif feature_flag == "SPT":
+                    any_gpu_in_SPT_mode = True
 
             # performing the schema validation and signature verification of the vbios RIM.
             info_log.info("\t\tAuthenticating VBIOS RIM.")
@@ -563,6 +579,12 @@ def attest(arguments_as_dictionary, nonce, gpu_evidence_list):
 
             # set current gpu_claims
             gpu_claims_list.append(ClaimsUtils.get_current_gpu_claims(settings, gpu_info_obj.get_uuid()))
+
+        # If any GPU is in MPT mode, then all GPUs should be in MPT mode.
+        if any_gpu_in_MPT_mode and any_gpu_in_SPT_mode:
+            overall_status = False
+            event_log.error("Detected GPUs in both MPT and SPT modes. This configuration is not allowed.")
+
 
     except Exception as error:
         info_log.error(error)

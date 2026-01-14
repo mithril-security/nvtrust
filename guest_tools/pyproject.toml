@@ -1,0 +1,2 @@
+[tool.uv.workspace]
+members = ["gpu_verifiers/local_gpu_verifier" ]
